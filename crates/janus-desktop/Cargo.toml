@@ -1,0 +1,23 @@
+[package]
+name = "janus-desktop"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "The Janus desktop app for Windows and Linux, on janus-ffi, with an egui interface."
+
+[dependencies]
+directories = "6.0.0"
+eframe = "0.37.0"
+getrandom = "0.4.3"
+janus-ffi = { version = "0.1.0", path = "../janus-ffi" }
+keyring = "4.2.0"
+zeroize = "1.9.1"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.5", features = ["time"] }
+
+[target.'cfg(windows)'.dependencies]
+uptime_lib = "0.3.1"
+
+[lints]
+workspace = true

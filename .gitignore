@@ -1,0 +1,14 @@
+/target
+/mailbox.der
+/.janus
+/janus-data
+/apps/apple/Generated
+/apps/apple/Janus.xcodeproj
+/apps/android/.gradle
+/apps/android/local.properties
+/apps/android/**/build
+/apps/android/app/src/main/jniLibs
+/apps/android/app/src/main/java/uniffi
+/apps/android/app/src/debug/assets
+.docs/
+.cursor/

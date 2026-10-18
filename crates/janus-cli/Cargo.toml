@@ -1,0 +1,20 @@
+[package]
+name = "janus-cli"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "Reference terminal client on janus-client, and a web demo of janus-core."
+
+[[bin]]
+name = "janus"
+path = "src/main.rs"
+
+[dependencies]
+getrandom = "0.4.3"
+janus-client = { version = "0.1.0", path = "../janus-client" }
+janus-core = { path = "../janus-core" }
+janus-transport = { version = "0.1.0", path = "../janus-transport" }
+zeroize = "1.9.1"
+
+[lints]
+workspace = true

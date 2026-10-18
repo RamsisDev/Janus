@@ -1,0 +1,24 @@
+[package]
+name = "janus-mailbox"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "Store-and-forward mailbox for Janus blocks, by queue id, with no accounts and no logs."
+
+[features]
+default = ["server"]
+# The TLS server of the development mailbox; clients need only the store and the protocol.
+server = ["dep:rcgen", "dep:rustls"]
+
+[[bin]]
+name = "janus-mailbox"
+required-features = ["server"]
+
+[dependencies]
+getrandom = "0.4"
+janus-core = { version = "0.1.0", path = "../janus-core" }
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs"], optional = true }
+rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "std", "prefer-post-quantum"], optional = true }
+
+[lints]
+workspace = true

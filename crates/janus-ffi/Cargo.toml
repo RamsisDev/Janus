@@ -1,0 +1,31 @@
+[package]
+name = "janus-ffi"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "UniFFI bindings over janus-client for the Swift and Kotlin apps."
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["cli"]
+
+[features]
+cli = ["uniffi/cli"]
+
+[dependencies]
+janus-client = { version = "0.1.0", path = "../janus-client" }
+janus-core = { version = "0.1.0", path = "../janus-core" }
+janus-transport = { version = "0.1.0", path = "../janus-transport" }
+uniffi = "0.32.2"
+zeroize = "1.9.1"
+
+[dev-dependencies]
+janus-mailbox = { version = "0.1.0", path = "../janus-mailbox" }
+
+# Not the workspace lints: UniFFI's generated scaffolding needs `unsafe`. This crate writes none.
+[lints.clippy]
+all = { level = "deny", priority = -1 }

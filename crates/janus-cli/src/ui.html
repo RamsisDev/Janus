@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Janus Knot</title>
+<style>
+  :root {
+    --bg: #0b0f15;
+    --panel: #141a23;
+    --panel-2: #1b2330;
+    --border: #2a3442;
+    --text: #e6edf3;
+    --muted: #8b98a8;
+    --primary: #4f46e5;
+    --ok: #3fb950;
+    --alice: #2dd4bf;
+    --alice-strong: #0f766e;
+    --bob: #f472b6;
+    --bob-strong: #be185d;
+    --relay: #a3e635;
+    --clock: #fdba74;
+    --k-handshake: #a78bfa;
+    --k-block: #60a5fa;
+    --k-rotation: #fbbf24;
+    --k-error: #f87171;
+    --k-info: #9ca3af;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 17px/1.45 var(--sans); }
+
+  button {
+    font: inherit; font-weight: 600; color: #fff; background: var(--accent-strong, var(--primary));
+    border: 1px solid transparent; border-radius: 10px; padding: 8px 16px; cursor: pointer;
+    transition: filter .15s, opacity .15s;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.15); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--text); border-color: var(--border); }
+  input {
+    font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px; min-width: 0; flex: 1;
+  }
+  input:focus { outline: 2px solid var(--accent, var(--primary)); outline-offset: -1px; }
+  input:disabled { opacity: .5; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    padding: 16px 28px; border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  header h1 { margin: 0; font-size: 1.6rem; letter-spacing: .02em; }
+  header .sub { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+  .controls { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .clock {
+    font-family: var(--mono); color: var(--clock); border: 1px solid var(--clock);
+    border-radius: 999px; padding: 4px 12px; font-size: .95rem;
+  }
+  .notice {
+    color: var(--k-error); border: 1px solid var(--k-error); border-radius: 999px;
+    padding: 4px 12px; font-size: .85rem;
+  }
+
+  main { max-width: 1680px; margin: 0 auto; padding: 20px 28px; display: grid; gap: 20px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .party { border-top: 3px solid var(--accent); height: max(380px, calc(65vh - 200px)); }
+  .party[data-side="a"] { --accent: var(--alice); --accent-strong: var(--alice-strong); }
+  .party[data-side="b"] { --accent: var(--bob); --accent-strong: var(--bob-strong); }
+  .card-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--accent-strong); color: #fff; font-weight: 700;
+  }
+  .card-head h2 { margin: 0; font-size: 1.2rem; line-height: 1.1; }
+  .role { color: var(--muted); font-size: .8rem; }
+
+  .invite { padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
+  .invite p { margin: 0 0 10px; }
+  .hint { color: var(--muted); font-size: .92rem; }
+  .row-actions { display: flex; gap: 10px; align-items: center; }
+  .chips { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips li {
+    font-family: var(--mono); font-size: 1.05rem; background: var(--bg);
+    border: 1px solid var(--accent); border-radius: 8px; padding: 4px 10px;
+  }
+  .chips li span { color: var(--muted); font-size: .8rem; margin-right: 6px; }
+  .badge-ok {
+    display: inline-flex; align-items: center; gap: 8px; color: var(--ok); font-size: .9rem;
+    font-weight: 600; border: 1px solid var(--ok); border-radius: 999px; padding: 3px 12px;
+    background: rgba(63, 185, 80, .1);
+  }
+  .badge-ok::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+
+  .msgs {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .msg {
+    max-width: 78%; padding: 8px 12px; border-radius: 14px;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .msg.mine { align-self: flex-end; background: var(--accent-strong); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.peer { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .empty { margin: auto; color: var(--muted); font-size: .92rem; text-align: center; }
+  .composer { display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--border); }
+
+  .procs-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+  }
+  .procs-head h2 { margin: 0; font-size: 1.1rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .82rem; }
+  .log { height: 35vh; overflow-y: auto; font-family: var(--mono); font-size: .88rem; padding: 6px 0; }
+  .entry {
+    display: grid; grid-template-columns: 64px 96px 1fr; gap: 12px; align-items: baseline;
+    padding: 3px 16px;
+  }
+  .entry:nth-child(even) { background: rgba(255, 255, 255, .02); }
+  .entry.is-error { background: rgba(248, 113, 113, .08); }
+  .entry .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .entry.new { animation: flash 1.2s ease-out; }
+  @keyframes flash { from { background: rgba(96, 165, 250, .25); } }
+  .morph {
+    display: block; margin-top: 4px; padding: 4px 10px; border-left: 3px solid var(--k-block);
+    background: rgba(0, 0, 0, .25); border-radius: 4px; color: #e2e8f0; letter-spacing: .02em;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .morph-label { display: block; font-size: .75rem; color: var(--muted); margin-top: 4px; }
+  .log .empty { display: block; padding: 20px; font-family: var(--sans); }
+  .side { font-weight: 700; }
+  .side-a { color: var(--alice); }
+  .side-b { color: var(--bob); }
+  .side-relay { color: var(--relay); }
+  .side-clock { color: var(--clock); }
+  .side-other { color: var(--muted); }
+  .kind {
+    --k: var(--k-info); color: var(--k); border: 1px solid var(--k); border-radius: 999px;
+    padding: 0 8px; font-size: .78rem; text-align: center; justify-self: start;
+    background: color-mix(in srgb, var(--k) 14%, transparent);
+  }
+  .k-handshake { --k: var(--k-handshake); }
+  .k-block { --k: var(--k-block); }
+  .k-rotation { --k: var(--k-rotation); }
+  .k-error { --k: var(--k-error); }
+  .k-info { --k: var(--k-info); }
+
+  @media (max-width: 900px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Janus Knot</h1>
+    <p class="sub">Live peer-to-peer end-to-end encryption &middot; 6-word CPace pairing + X25519 + ML-KEM-768 &middot; fixed 16384-byte blocks on rotating queue ids</p>
+  </div>
+  <div class="controls">
+    <span id="notice" class="notice" hidden></span>
+    <span class="clock" title="Shared clock skew">clock <b id="clock">+0h</b></span>
+    <button id="skip">+1h (force rotation)</button>
+    <button id="reset" class="ghost">Reset</button>
+  </div>
+</header>
+
+<main>
+  <section class="cols">
+    <article class="card party" data-side="a">
+      <div class="card-head">
+        <span class="avatar">A</span>
+        <div><h2>Alice</h2><span class="role">inviter</span></div>
+      </div>
+      <div class="invite">
+        <div id="a-idle">
+          <p class="hint">Create a one-time invitation and share the 6 words with Bob.</p>
+          <button id="create">Create invitation</button>
+        </div>
+        <div id="a-words" hidden>
+          <p class="hint">Share these 6 words with Bob over a trusted channel:</p>
+          <ol class="chips" id="chips"></ol>
+          <button id="copy" class="ghost">Copy words</button>
+        </div>
+        <p id="a-lost" class="hint" hidden>Invitation pending, but its words are not available in this page. Reset to start over.</p>
+        <div id="a-verify" hidden>
+          <p class="hint">Type the 3 safety words Bob reads to you. If they differ, someone is in the middle.</p>
+          <form id="verify-form" class="row-actions">
+            <input id="verify-input" type="text" placeholder="The 3 words Bob reads" autocomplete="off" spellcheck="false">
+            <button id="verify" type="submit">Verify</button>
+          </form>
+        </div>
+        <span id="a-est" class="badge-ok" hidden>Session established</span>
+      </div>
+      <div class="msgs" id="a-msgs"></div>
+      <form class="composer" data-side="a">
+        <input id="a-input" type="text" placeholder="Message Bob..." autocomplete="off">
+        <button id="a-send" type="submit">Send</button>
+      </form>
+    </article>
+
+    <article class="card party" data-side="b">
+      <div class="card-head">
+        <span class="avatar">B</span>
+        <div><h2>Bob</h2><span class="role">joiner</span></div>
+      </div>
+      <div class="invite">
+        <p id="b-idle" class="hint">Waiting for Alice's invitation</p>
+        <form id="join-form" class="row-actions" hidden>
+          <input id="join-input" type="text" placeholder="Paste the 6 words" autocomplete="off" spellcheck="false">
+          <button id="join" type="submit">Join</button>
+        </form>
+        <div id="b-safety" hidden>
+          <p class="hint">Read these 3 safety words to Alice. Nothing is sent until she says they match:</p>
+          <ol class="chips" id="safety-chips"></ol>
+        </div>
+        <span id="b-est" class="badge-ok" hidden>Session established</span>
+      </div>
+      <div class="msgs" id="b-msgs"></div>
+      <form class="composer" data-side="b">
+        <input id="b-input" type="text" placeholder="Message Alice..." autocomplete="off">
+        <button id="b-send" type="submit">Send</button>
+      </form>
+    </article>
+  </section>
+
+  <section class="card">
+    <div class="procs-head">
+      <h2>Processes</h2>
+      <div class="legend">
+        <span class="side side-a">Alice</span>
+        <span class="side side-b">Bob</span>
+        <span class="side side-relay">Relay</span>
+        <span class="side side-clock">Clock</span>
+        <span class="kind k-handshake">handshake</span>
+        <span class="kind k-block">block</span>
+        <span class="kind k-rotation">rotation</span>
+        <span class="kind k-error">error</span>
+        <span class="kind k-info">info</span>
+      </div>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const SIDE_NAMES = { a: "Alice", b: "Bob", relay: "Relay", clock: "Clock" };
+const KINDS = ["handshake", "block", "rotation", "error", "info"];
+const $ = (id) => document.getElementById(id);
+
+let state = { phase: "idle", skew_hours: 0, chats: { a: [], b: [] }, log: [] };
+let inviteWords = null; // only GET /words returns them, never the state
+let busy = false;
+let notice = "";
+const seen = { a: -1, b: -1 };
+
+async function call(path, body) {
+  busy = true;
+  render();
+  try {
+    const opts = body === undefined
+      ? { cache: "no-store" }
+      : { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body };
+    const res = await fetch(path, opts);
+    if (!res.ok) throw new Error("Server error (HTTP " + res.status + ")");
+    state = await res.json();
+    notice = "";
+    if (state.phase === "idle") inviteWords = null;
+    return true;
+  } catch (err) {
+    notice = err instanceof TypeError ? "Server unreachable" : String(err.message || err);
+    return false;
+  } finally {
+    busy = false;
+    render();
+  }
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function render() {
+  const phase = state.phase;
+  const connected = phase === "connected";
+
+  $("notice").hidden = !notice;
+  $("notice").textContent = notice;
+  $("clock").textContent = "+" + (Number(state.skew_hours) || 0) + "h";
+  $("skip").disabled = busy || !connected;
+  $("reset").disabled = busy;
+
+  $("a-idle").hidden = phase !== "idle";
+  $("create").disabled = busy;
+  $("a-words").hidden = !(phase === "invited" && inviteWords);
+  $("a-lost").hidden = !(phase === "invited" && !inviteWords);
+  $("a-verify").hidden = phase !== "verifying";
+  $("verify").disabled = busy;
+  $("a-est").hidden = !connected;
+  renderChips("chips", inviteWords || []);
+
+  $("b-idle").hidden = phase !== "idle";
+  $("join-form").hidden = phase !== "invited";
+  $("join").disabled = busy;
+  $("b-safety").hidden = phase !== "verifying";
+  renderChips("safety-chips", state.safety ? state.safety.split(" ") : []);
+  $("b-est").hidden = !connected;
+
+  for (const side of ["a", "b"]) {
+    renderChat(side, connected);
+    $(side + "-input").disabled = !connected;
+    $(side + "-send").disabled = busy || !connected;
+  }
+  renderLog();
+}
+
+function renderChips(id, words) {
+  const list = $(id);
+  list.replaceChildren();
+  words.forEach((word, i) => {
+    const li = el("li");
+    li.append(el("span", "", String(i + 1)), word);
+    list.append(li);
+  });
+}
+
+function renderChat(side, connected) {
+  const box = $(side + "-msgs");
+  const msgs = (state.chats && state.chats[side]) || [];
+  box.replaceChildren();
+  if (!msgs.length) {
+    box.append(el("p", "empty", connected
+      ? "No messages yet. Say hi!"
+      : "Messages appear here once the session is established."));
+  }
+  for (const m of msgs) box.append(el("div", "msg " + (m.mine ? "mine" : "peer"), String(m.text)));
+  if (msgs.length !== seen[side]) box.scrollTop = box.scrollHeight;
+  seen[side] = msgs.length;
+}
+
+// New log entries play one after another so each step of the pipeline can be followed.
+let queued = 0;
+let pending = [];
+let playing = 0;
+
+function renderLog() {
+  const box = $("log");
+  const log = state.log || [];
+  if (log.length < queued) {
+    queued = 0;
+    pending = [];
+    box.replaceChildren();
+  }
+  if (!log.length && !box.firstChild) {
+    box.append(el("p", "empty", "No activity yet. Create an invitation to start."));
+  }
+  pending.push(...log.slice(queued));
+  queued = log.length;
+  if (!playing) playNext();
+}
+
+function playNext() {
+  const e = pending.shift();
+  if (!e) { playing = 0; return; }
+  const box = $("log");
+  box.querySelector(".empty")?.remove();
+  const side = Object.hasOwn(SIDE_NAMES, e.side) ? e.side : "other";
+  const kind = KINDS.includes(e.kind) ? e.kind : "info";
+  const row = el("div", "entry new" + (kind === "error" ? " is-error" : ""));
+  const text = el("span", "text", String(e.text));
+  row.append(
+    el("span", "side side-" + side, SIDE_NAMES[side] || String(e.side)),
+    el("span", "kind k-" + kind, String(e.kind)),
+    text,
+  );
+  const animated = typeof e.from === "string" && typeof e.to === "string";
+  if (animated) {
+    const encrypting = e.from.startsWith('"');
+    text.append(el("span", "morph-label", encrypting
+      ? "XChaCha20-Poly1305 encrypting: plaintext -> ciphertext"
+      : "XChaCha20-Poly1305 decrypting: ciphertext -> plaintext"));
+    const out = el("span", "morph", e.from);
+    text.append(out);
+    morph(out, e.from, e.to, MORPH_MS);
+  }
+  box.append(row);
+  box.scrollTop = box.scrollHeight;
+  const gap = pending.length > 12 ? 60 : 280;
+  playing = setTimeout(playNext, animated ? MORPH_MS + 200 : gap);
+}
+
+const MORPH_MS = 1400;
+const HEX = "0123456789abcdef";
+
+function morph(node, from, to, ms) {
+  const len = Math.max(from.length, to.length);
+  const start = performance.now();
+  const frame = (now) => {
+    const p = Math.min(1, (now - start) / ms);
+    if (p < 0.2) {
+      node.textContent = from;
+    } else {
+      const settled = Math.floor(((p - 0.2) / 0.8) * len);
+      let s = to.slice(0, settled);
+      for (let i = settled; i < len; i++) s += to[i] === " " ? " " : HEX[(Math.random() * 16) | 0];
+      node.textContent = s;
+    }
+    if (p < 1) requestAnimationFrame(frame);
+    else node.textContent = to;
+  };
+  requestAnimationFrame(frame);
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (_) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;left:-9999px;opacity:0";
+    document.body.append(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+}
+
+$("create").addEventListener("click", async () => {
+  if (busy) return;
+  const res = await fetch("/words", { cache: "no-store" }).catch(() => null);
+  if (!res || !res.ok) {
+    notice = res ? "Server error (HTTP " + res.status + ")" : "Server unreachable";
+    return render();
+  }
+  inviteWords = (await res.text()).split(" ");
+  call("/invite", inviteWords.join(" "));
+});
+
+let copyTimer = 0;
+$("copy").addEventListener("click", async () => {
+  if (!inviteWords) return;
+  const btn = $("copy");
+  const ok = await copyText(inviteWords.join(" "));
+  btn.textContent = ok ? "Copied!" : "Copy failed";
+  clearTimeout(copyTimer);
+  copyTimer = setTimeout(() => { btn.textContent = "Copy words"; }, 1500);
+});
+
+$("join-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const input = $("join-input");
+  const words = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+  if (busy || !words) return;
+  if (await call("/join", words) && state.phase === "verifying") input.value = "";
+});
+
+$("verify-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const input = $("verify-input");
+  const words = input.value.trim();
+  if (busy || !words) return;
+  if (await call("/verify", words) && state.phase === "connected") input.value = "";
+});
+
+for (const form of document.querySelectorAll("form.composer")) {
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const side = form.dataset.side;
+    const input = $(side + "-input");
+    const text = input.value;
+    if (busy || state.phase !== "connected" || !text.trim()) return;
+    if (await call("/send?from=" + side, text)) input.value = "";
+    input.focus();
+  });
+}
+
+$("skip").addEventListener("click", () => { if (!busy) call("/skip", ""); });
+
+$("reset").addEventListener("click", () => {
+  if (busy) return;
+  inviteWords = null;
+  for (const id of ["join-input", "verify-input", "a-input", "b-input"]) $(id).value = "";
+  call("/reset", "");
+});
+
+call("/state");
+</script>
+</body>
+</html>

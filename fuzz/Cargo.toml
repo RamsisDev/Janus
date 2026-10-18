@@ -1,0 +1,37 @@
+[package]
+name = "janus-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+janus-core = { path = "../crates/janus-core" }
+libfuzzer-sys = "0.4"
+
+# Its own workspace: it builds only on nightly, under `cargo fuzz`.
+[workspace]
+
+[[bin]]
+name = "receive"
+path = "fuzz_targets/receive.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "import"
+path = "fuzz_targets/import.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "handshake"
+path = "fuzz_targets/handshake.rs"
+test = false
+doc = false
+bench = false

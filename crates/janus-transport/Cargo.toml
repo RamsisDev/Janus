@@ -1,0 +1,38 @@
+[package]
+name = "janus-transport"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "How Janus blocks travel: the Transport trait and its implementations."
+
+[features]
+# `sim`: a mixnet simulated in memory, for tests of the crates above.
+sim = []
+
+[dependencies]
+aes = "0.9.3"
+blake2 = "0.11.0"
+chacha20poly1305 = "0.11.0"
+ciborium = "0.2.2"
+ctr = "0.10.1"
+ed25519-dalek = "3.0.0"
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+getrandom = "0.4.3"
+hkdf = "0.13.0"
+hmac = "0.13.0"
+janus-core = { version = "0.1.0", path = "../janus-core" }
+janus-mailbox = { version = "0.1.0", path = "../janus-mailbox", default-features = false }
+rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "std", "prefer-post-quantum"] }
+sha2 = "0.11.1"
+subtle = "2.6.1"
+x-wing = { version = "0.1.1", features = ["hazmat", "zeroize"] }
+x25519-dalek = { version = "3.0.0", features = ["static_secrets", "zeroize"] }
+zears = "0.2.1"
+zeroize = "1.9.1"
+
+[dev-dependencies]
+base64 = "0.22"
+janus-mailbox = { version = "0.1.0", path = "../janus-mailbox" }
+
+[lints]
+workspace = true

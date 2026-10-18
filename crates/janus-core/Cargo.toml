@@ -1,0 +1,20 @@
+[package]
+name = "janus-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "Core of a peer-to-peer privacy engine: handshake, ratchet and fixed-size encrypted blocks."
+
+[dependencies]
+chacha20poly1305 = "0.11.0"
+getrandom = "0.4.3"
+hkdf = "0.13.0"
+ml-kem = { version = "0.3.3", features = ["zeroize"] }
+pake-cpace = "0.1.7"
+sha2 = "0.11.1"
+subtle = "2.6.1"
+x25519-dalek = { version = "3.0.0", features = ["static_secrets", "zeroize"] }
+zeroize = "1.9.1"
+
+[lints]
+workspace = true

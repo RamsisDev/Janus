@@ -1,0 +1,92 @@
+(* The janus-core handshake (crates/janus-core/src/handshake.rs) in the symbolic model.
+
+   Abstractions:
+   - CPace is Diffie-Hellman on a generator hashed from the words, its key hashed with both
+     messages; X25519 is Diffie-Hellman on a fixed generator. No low-order points.
+   - ML-KEM is an ideal KEM. HKDF and SHA-256 are random oracles (`kdf`, `h`), so safety
+     words never collide: their 33-bit length is outside this model.
+   - The msg3 mask is an ideal one-time pad. *)
+
+free c: channel.
+
+type G.
+type exponent.
+type password.
+type kemsk.
+type ekey.
+type coins.
+type interval.
+
+const g: G [data].
+fun gen(password): G.
+fun exp(G, exponent): G.
+equation forall a: G, x: exponent, y: exponent; exp(exp(a, x), y) = exp(exp(a, y), x).
+
+fun kempk(kemsk): ekey.
+fun kem_ct(ekey, coins): bitstring.
+fun kem_ss(ekey, coins): bitstring.
+reduc forall sk: kemsk, m: coins; kem_dec(sk, kem_ct(kempk(sk), m)) = kem_ss(kempk(sk), m).
+
+fun h(bitstring): bitstring.
+fun hcpace(G, G, G): bitstring.
+(* kdf(salt, ikm, label) *)
+fun kdf(bitstring, bitstring, bitstring): bitstring.
+fun commit(G, interval): bitstring.
+fun mask(G, bitstring): bitstring.
+reduc forall p: G, k: bitstring; unmask(mask(p, k), k) = p.
+fun senc(bitstring, bitstring): bitstring.
+reduc forall m: bitstring, k: bitstring; sdec(senc(m, k), k) = m.
+
+const confirm_b, confirm_a, mask_l, root_l, safety_l: bitstring.
+const h1, h5, h10, h120: interval.
+
+(* B answered with this transcript up to msg2 and these shared secrets. *)
+event BAnswered(password, bitstring, bitstring).
+(* A accepted msg2, before sending msg3. *)
+event AAccepted(password, bitstring, bitstring).
+(* A or B finished: words, root key, safety words, A's first ratchet key, interval. *)
+event ADone(password, bitstring, bitstring, G, interval).
+event BDone(password, bitstring, bitstring, G, interval).
+
+let Initiator(pw: password, iv: interval, payload: bitstring) =
+  new ya: exponent; new x: exponent; new r: exponent; new dk: kemsk;
+  let ra = exp(g, r) in
+  let msg1 = (exp(gen(pw), ya), exp(g, x), commit(ra, iv), kempk(dk)) in
+  out(c, msg1);
+  in(c, (yb: G, y: G, ct: bitstring, cb: bitstring));
+  let ikm = (hcpace(exp(yb, ya), exp(gen(pw), ya), yb), exp(y, x), kem_dec(dk, ct)) in
+  if cb = kdf(h((msg1, yb, y, ct)), ikm, confirm_b) then
+  let th2 = h((msg1, yb, y, ct, cb)) in
+  let th3 = h((msg1, yb, y, ct, cb, ra)) in
+  event AAccepted(pw, th2, ikm);
+  out(c, (mask(ra, kdf(th2, ikm, mask_l)), kdf(th3, ikm, confirm_a)));
+  let root = kdf(th3, ikm, root_l) in
+  event ADone(pw, root, kdf(th3, ikm, safety_l), ra, iv);
+  out(c, senc(payload, root)).
+
+let Finish(pw: password, root: bitstring, safety: bitstring, ra: G, iv: interval,
+           payload: bitstring) =
+  event BDone(pw, root, safety, ra, iv);
+  out(c, senc(payload, root)).
+
+let Responder(pw: password, payload: bitstring) =
+  in(c, (ya: G, x: G, cm: bitstring, ek: ekey));
+  new yb: exponent; new y: exponent; new m: coins;
+  let msg1 = (ya, x, cm, ek) in
+  let ct = kem_ct(ek, m) in
+  let ikm = (hcpace(exp(ya, yb), ya, exp(gen(pw), yb)), exp(x, y), kem_ss(ek, m)) in
+  let cb = kdf(h((msg1, exp(gen(pw), yb), exp(g, y), ct)), ikm, confirm_b) in
+  let th2 = h((msg1, exp(gen(pw), yb), exp(g, y), ct, cb)) in
+  event BAnswered(pw, th2, ikm);
+  out(c, (exp(gen(pw), yb), exp(g, y), ct, cb));
+  in(c, (masked: bitstring, ca: bitstring));
+  let ra = unmask(masked, kdf(th2, ikm, mask_l)) in
+  let th3 = h((msg1, exp(gen(pw), yb), exp(g, y), ct, cb, ra)) in
+  if ca = kdf(th3, ikm, confirm_a) then
+  let root = kdf(th3, ikm, root_l) in
+  let safety = kdf(th3, ikm, safety_l) in
+  (* B learns the interval by testing the commitment against every value. *)
+  if cm = commit(ra, h1) then Finish(pw, root, safety, ra, h1, payload)
+  else if cm = commit(ra, h5) then Finish(pw, root, safety, ra, h5, payload)
+  else if cm = commit(ra, h10) then Finish(pw, root, safety, ra, h10, payload)
+  else if cm = commit(ra, h120) then Finish(pw, root, safety, ra, h120, payload).

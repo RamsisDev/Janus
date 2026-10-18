@@ -1,0 +1,35 @@
+(* Trace properties of the handshake. Run: proverif -lib formal/janus formal/handshake.pv
+
+   Draft: ProVerif 2.05 does not terminate on it yet (more than 15 minutes), most likely
+   because of the Diffie-Hellman equation with a variable base used for CPace. No result
+   here is established.
+
+   Honest sessions share words the attacker lacks until phase 1, when they leak. Other
+   sessions use words the attacker always had: it can sit in the middle of those. *)
+
+free words: password [private].
+free leaked: password.
+free secret_a, secret_b: bitstring [private].
+free leaked_secret: bitstring.
+
+(* The root key stays secret, even once the words leak. *)
+query attacker(secret_a).
+query attacker(secret_b).
+
+(* Each side's session matches exactly one session of the other side. *)
+query th: bitstring, k: bitstring;
+  inj-event(AAccepted(words, th, k)) ==> inj-event(BAnswered(words, th, k)).
+query r: bitstring, s: bitstring, ra: G, iv: interval;
+  inj-event(BDone(words, r, s, ra, iv)) ==> inj-event(ADone(words, r, s, ra, iv)).
+
+(* Equal safety words mean the same session, so a man in the middle who has the words shows
+   A and B different ones. Covers both kinds of sessions. *)
+query w1: password, w2: password, r1: bitstring, r2: bitstring, s: bitstring, ra1: G,
+      ra2: G, i1: interval, i2: interval;
+  event(ADone(w1, r1, s, ra1, i1)) && event(BDone(w2, r2, s, ra2, i2)) ==> r1 = r2.
+
+process
+  (!Initiator(words, h1, secret_a)) | (!Initiator(words, h120, secret_a))
+  | (!Responder(words, secret_b))
+  | (!Initiator(leaked, h1, leaked_secret)) | (!Responder(leaked, leaked_secret))
+  | (phase 1; out(c, words))
